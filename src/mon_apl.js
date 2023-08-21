@@ -267,7 +267,7 @@
         } else if (sm[0]) {
           [c] = sm;
           switch (c) {
-            case ' ':
+            case ' ': case '\t': case '\r': case '\n':
               m = sm.match(/^[ \t\r\n]+/);
               addToken(offset, 'white');
               offset += m[0].length; break;
@@ -559,7 +559,7 @@
       const eol = line.length;
       const h = lt.endState;
       let m; // m:regex match object
-      if (!se.lineEditor[h.l + 1] && se.dirty[h.l + 1] == null) {
+      if (se.promptType === 4 || (!se.lineEditor[h.l + 1] && se.dirty[h.l + 1] == null)) {
         offset = eol;
         h.l += 1;
         return lt;
@@ -888,7 +888,7 @@
         return {
           range: new monaco.Range(p.lineNumber, p.column - 1, p.lineNumber, p.column),
           contents: [
-            { value: lbt[0] },
+            { value: lbt[0].replace(/\\/g, '\\\\') },
             { value: `\`\`\`plaintext\n${lbt[1]}\n\`\`\`` },
           ],
         };

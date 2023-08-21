@@ -9,10 +9,41 @@
     content: '⬤';
     font-size: 0.7em;
   }
-  &.breakpoint::before{
+  &.monitorpoint.breakpoint.tracepoint::before,
+  &.monitorpoint.breakpoint::before,
+  &.monitorpoint.tracepoint::before,
+  &.breakpoint.tracepoint::before
+  {
+    border: none;
+    background: none;
+    color: #999;
+    content: '+';
+    font-size: 1.3em;
+    text-shadow: 1px 1px black,-1px -1px black,1px -1px black,-1px 1px black;
+  }
+  &.monitorpoint::before {
+    color: black;
+    content: '┘';
+    font-size: 0.45em;
+    border: 1px solid black;
+    border-radius: 1em;
+    width: 3ex;
+    text-align: center;
+    line-height: 3ex;
+    background: white;
+    text-shadow: 1px 1px black,0 1px black,1px 0 black;
+  }
+  &.breakpoint::before {
     color: red;
     content: '⬤';
-    font-size: 0.8em;
+    font-size: 0.6em;
+    text-shadow: 1px 1px black,-1px -1px black,1px -1px black,-1px 1px black;
+  }
+  &.tracepoint::before {
+    color: yellow;
+    content: '⬤';
+    font-size: 0.6em;
+    text-shadow: 1px 1px black,-1px -1px black,1px -1px black,-1px 1px black;
   }
 }
 .highlighted{
@@ -31,7 +62,10 @@
   &.group_end::before{
     content: '└';
   }
-  &.group_single::before{
+  &.modified:not(.group_start,.group_middle,.group_end)::before{
     content: '∙';
+  }
+  &.modified::before{
+    color: red;
   }
 }
