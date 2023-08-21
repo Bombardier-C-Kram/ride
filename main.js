@@ -5,6 +5,7 @@ const ps = process;
 const el = rq('electron');
 const elm = rq('@electron/remote/main');
 const D = {};
+const DiscordRPC = require('discord-rpc');
 
 elm.initialize();
 // Detect platform: https://nodejs.org/api/process.html#process_process_platform
@@ -73,6 +74,7 @@ el.app.on('ready', () => {
   }
 
   // create an electron renderer
+
   global.elw = new el.BrowserWindow({
     x,
     y,
@@ -139,7 +141,53 @@ el.app.on('ready', () => {
 el.app.on('window-all-closed', () => { el.app.quit(); });
 el.app.on('will-finish-launching', () => {
   el.app.on('open-file', (event, path) => {
-      global.open_file = path;
+    global.open_file = path;
   });
+
+
 });
+
+// Set this to your Client ID.
+const clientId = '1127673682140086322';
+
+// Only needed if you want to use spectate, join, or ask to join
+DiscordRPC.register(clientId);
+
+const rpc = new DiscordRPC.Client({ transport: 'ipc' });
+const startTimestamp = new Date();
+
+async function setActivity() {
+  if (!rpc || !global.elw) {
+    return;
+  }
+
+
+  // Get some the name of the current window
+  const windowName = global.elw.getTitle();
+
+  // You'll need to have snek_large and snek_small assets uploaded to
+  // https://discord.com/developers/applications/<application_id>/rich-presence/assets
+  rpc.setActivity({
+    details: 'Programming in APL',
+    state: windowName,
+    startTimestamp,
+    largeImageKey: 'd',
+    largeImageText: 'This was created by me, SpaceQuacker',
+    smallImageKey: 'd',
+    smallImageText: 'TODO, I have no clue what to put here',
+    instance: false,
+  });
+}
+
+rpc.on('ready', () => {
+  setActivity();
+
+  // activity can only be set every 15 seconds
+  setInterval(() => {
+    setActivity();
+  }, 15e3);
+});
+
+rpc.login({ clientId }).catch(console.error);
+
 global.js = (i, x) => el.BrowserWindow.fromId(i).webContents.executeJavaScript(x);
