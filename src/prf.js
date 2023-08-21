@@ -19,6 +19,8 @@ D.prf = {};
   ['colourSchemes',      []],//objects describing user-defined colour schemes
   ['confirmations',      {}],//saved responses to TaskDialog questions
   ['connectOnQuit',      0], // open connection page when active session ends
+  ['customAplFont',      ''], // custom APL font, e.g. Consolas
+  ['defaultConfig',      ''], // default session configuration
   ['doubleClickToEdit',  1], // whether double clicking a function name in session or editor opens an editor on that function
   ['filenameInTitle',    1], // include filename in editor title
   ['floating',           0], //floating editor and tracer windows
@@ -54,6 +56,7 @@ D.prf = {};
   ['sessionLogSize',     0],// max lines of session log to show (0 = unlimited)
   ['showCCGC',           0], // show CC and GC in statusbar
   ['showEditorToolbar',  1],// show toolbar in editor windows
+  ['showSessionMargin',  1],// show session margin
   ['snippetSuggestions', 1],// show snippet suggestions
   ['statusWindow',       0], //show status window
   ['title',              '{CAPTION}'], //a.k.a. "caption"
@@ -86,13 +89,15 @@ D.prf = {};
     + '\n  -                             {!mac}'
     + '\n  &Quit                    =QIT {!mac}'
     + '\n&Edit'
-    + '\n  Undo                     =UND {!browser}'
-    + '\n  Redo                     =RDO {!browser}'
-    + '\n  -                             {!browser}'
-    + '\n  Cut                      =CT  {!browser}'
-    + '\n  Copy                     =CP  {!browser}'
-    + '\n  Paste                    =PT  {!browser}'
-    + '\n  Select All               =SA  {mac}'
+    + '\n  Reformat                 =RD'
+    + '\n  -                            '
+    + '\n  Undo                     =UND'
+    + '\n  Redo                     =RDO'
+    + '\n  -                            '
+    + '\n  Cut                      =CT '
+    + '\n  Copy                     =CP '
+    + '\n  Paste                    =PT '
+    + '\n  Select All               =SA'
     + '\n  -                             {mac||!browser}'
     + '\n  &Find...                 =SC'
     + '\n  Find and &Replace...     =RP'

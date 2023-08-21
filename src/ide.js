@@ -238,8 +238,6 @@ D.IDE = function IDE(opts = {}) {
   I.lb_prf.onmouseout = I.lb_tip.onmouseout;
   I.lb_prf.onmousedown = () => { D.prf_ui('shc'); return !1; };
   I.lb_prf.onclick = () => !1; // prevent # from appearing in the URL bar
-  I.sb_prf.onmousedown = () => { D.prf_ui(); return !1; };
-  I.sb_prf.onclick = () => !1; // prevent # from appearing in the URL bar
   $(I.lb_inner).sortable({
     forcePlaceholderSize: 1,
     placeholder: 'lb_placeholder',
@@ -509,7 +507,11 @@ D.IDE = function IDE(opts = {}) {
     });
   });
   D.prf.selectionHighlight((x) => { eachWin(w => !w.bwId && w.selectionHighlight(x)); });
-  D.prf.showEditorToolbar((x) => { $('.ride_win.edit_trace').toggleClass('no-toolbar', !x); });
+  D.prf.showSessionMargin((x) => { !ide.floating && ide.wins['0'].showSessionMargin(x); });
+  D.prf.showEditorToolbar((x) => {
+    $('.ride_win.edit_trace').toggleClass('no-toolbar', !x);
+    updTopBtm();
+  });
   D.prf.snippetSuggestions((x) => { eachWin(w => !w.bwId && w.snippetSuggestions(x)); });
   D.prf.zoom(ide.zoom.bind(ide));
 
@@ -548,7 +550,7 @@ D.IDE = function IDE(opts = {}) {
       } else { $.err(x.message, 'Interpreter disconnected'); }
     },
     SysError(x) { $.err(x.text, 'SysError'); ide.die(); },
-    InternalError(x) { $.err(`An error (${x.error}) occurred processing ${x.message}`, 'Internal Error'); },
+    InternalError(x) { $.err(`An error (${x.error_text || x.error}) occurred processing ${x.message}`, 'Internal Error'); },
     NotificationMessage(x) { $.alert(x.message, 'Notification'); },
     UpdateDisplayName(x) {
       ide.wsid = x.displayName;

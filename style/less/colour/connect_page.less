@@ -1,12 +1,12 @@
 #cn {
   input:not([type=button]):not([type=file]):not([type=submit]):not([type=checkbox]),textarea{
     border: 1px solid @CN_INPUT_BORDER_COL;
-    background-color: 	@CN_INPUT_BG;
-		color:@CN_INPUT_FG;
+    background-color: @CN_INPUT_BG;
+	  color:@CN_INPUT_FG;
     &:disabled{
       background-color:	@CN_INPUT_DIS_BG;
-			border-color:	@CN_INPUT_BORDER_COL;
-			color:@CN_INPUT_DIS_FG;
+      border-color:	@CN_INPUT_BORDER_COL;
+			color: @CN_INPUT_DIS_FG;
 			&::-webkit-input-placeholder {
 				color: @CN_INPUT_DIS_FG;
 			}
@@ -31,13 +31,13 @@
 #cn_favs {
 	
 	>div.list_sel{
-		background:@CN_FAV_BTN_BG;
-		color: @CN_FAV_BTN_FG;
+		background:@CN_FAV_BTN_SEL_BG;
+		color: @CN_FAV_BTN_SEL_FG;
 		opacity:1;
 		.go {
-			color:@CN_FAV_BTN_FG;
+			color:@CN_FAV_BTN_SEL_FG!important;
 			&:hover{
-				color:@BUTTON_HOVER_COL;
+				color:@BUTTON_HOVER_COL!important;
 			}
 		}
 	}
@@ -45,12 +45,16 @@
 		outline: dotted black 1px;
 	}
 	>div{
-		background:@CN_FAV_BTN_UNSEL_BG;
-		color:@CN_FAV_BTN_UNSEL_FG;
+		background:@CN_FAV_BTN_BG;
+		color:@CN_FAV_BTN_FG;
+		&:not(:first-child) {
+			.go {color:@CN_FAV_BTN_BG;}
+			&:hover .go {
+				color:@CN_FAV_BTN_FG;
+				&:hover {color: @CN_FAV_BTN_SEL_BG;}
+			}
+		}
 	}
-}
-#cn_fav_btns {
-  background:linear-gradient(@CN_RHS_BG, @CN_RHS_BG2);
 }
 #cn_lhs {
 	background: @CN_LHS_BG;

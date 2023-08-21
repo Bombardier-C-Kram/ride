@@ -6,6 +6,7 @@ D.Ed = function Ed(ide, opts) { // constructor
   ed.ide = ide;
   ed.id = opts.id;
   ed.name = opts.name;
+  ed.title = ed.name;
   ed.tc = opts.tc;
   ed.HIGHLIGHT_LINE = 1;
   ed.decorations = [];
@@ -20,8 +21,11 @@ D.Ed = function Ed(ide, opts) { // constructor
   D.createContextMenu(ed.dom, ed);
   ed.oText = '';
   ed.oStop = []; // remember original text and "stops" to avoid pointless saving on EP
-  ed.stop = new Set(); // remember original text and "stops" to avoid pointless saving on EP
+  ed.monitor = new Set();
+  ed.stop = new Set();
+  ed.trace = new Set();
   ed.isCode = 1;
+  ed.isModified = false;
   ed.isReadOnly = !1;
   ed.isReadOnlyEntity = !1;
   ed.breakpoints = D.prf.breakPts();
@@ -33,6 +37,7 @@ D.Ed = function Ed(ide, opts) { // constructor
     autoClosingBrackets: !!D.prf.autoCloseBrackets(),
     automaticLayout: true,
     autoIndent: D.prf.indent() >= 0,
+    'bracketPairColorization.enabled': false,
     contextmenu: false,
     cursorStyle: D.prf.blockCursor() ? 'block' : 'line',
     cursorBlinking: D.prf.cursorBlinking(),
@@ -65,6 +70,7 @@ D.Ed = function Ed(ide, opts) { // constructor
     stopRenderingLineAfter: -1,
     suggestOnTriggerCharacters: D.prf.autocompletion() === 'classic',
     showFoldingControls: 'always',
+    unicodeHighlight: { ambiguousCharacters: false },
     useTabStops: false,
     wordBasedSuggestions: false,
     wordSeparators: D.wordSeparators,
@@ -90,20 +96,30 @@ D.Ed = function Ed(ide, opts) { // constructor
   me.onDidChangeCursorPosition(ed.cursorActivity.bind(ed));
 
   me.getModel().onDidChangeContent((evt) => {
-    const range = evt.changes[0].range;
+    const { range } = evt.changes[0];
+    const wasModified = ed.isModified;
+    ed.isModified = !ed.firstOpen;
     if (ed.isCode && range.startLineNumber === 1) {
       const content = me.getModel().getLineContent(1);
       const [s] = content.match(/[^⍝\n\r;]*/);
-      if (!s) return ed.container.setTitle(ed.name);
-      if (D.syntax.dfnHeader.test(s)) {
-        return ed.container.setTitle(s.split('←')[0]);
+      if (!s) {
+        ed.title = ed.name;
+      } else if (D.syntax.dfnHeader.test(s)) {
+        ed.title = s.split('←')[0].trim(' ');
+      } else {
+        const cds = s.match(RegExp(`^:((?:Class[ :]*|Namespace|Interface) +(${D.syntax.name}))?`, 'i'));
+        if (cds) {
+          ed.title = cds[2] || ed.name;
+        } else {
+          const [, fn, op] = s.match(D.syntax.tradFnRE) || [];
+          ed.title = op || fn || ed.name;
+        }
       }
-      const cds = s.match(RegExp(`^:((?:Class[ :]*|Namespace|Interface) +(${D.syntax.name}))?`, 'i'));
-      if (cds) {
-        return ed.container.setTitle(cds[2] || ed.name);
-      }
-      const [, fn, op] = s.match(D.syntax.tradFnRE) || [];
-      return ed.container.setTitle(op || fn || ed.name);
+      ed.updateTitle();
+    }
+    if (wasModified !== ed.isModified) {
+      ed.updateTitle();
+      ed.container.tab.closeElement.toggleClass('modified', ed.isModified);
     }
   });
 
@@ -117,11 +133,11 @@ D.Ed = function Ed(ide, opts) { // constructor
       e.event.preventDefault();
       e.event.stopPropagation();
     } else if (t.type === mt.GUTTER_GLYPH_MARGIN) {
-      const l = p.lineNumber - 1;
-      ed.updStops();
-      ed.stop.has(l) ? ed.stop.delete(l) : ed.stop.add(l);
-      ed.setStop();
-      ed.tc && D.send('SetLineAttributes', { win: ed.id, stop: ed.getStops() });
+      if (e.event.buttons === 2) {
+        ed.lineClicked = p.lineNumber;
+      } else {
+        ed.toggleStop(p.lineNumber - 1);
+      }
     } else if (t.type === mt.CONTENT_TEXT
       || (ed.tc && inEmptySpace)) {
       if (e.event.timestamp - mouseTS < 400 && mouseL === p.lineNumber && mouseC === p.column) {
@@ -251,15 +267,33 @@ D.Ed.prototype = {
   },
   setStop() {
     const ed = this;
-    ed.stopDecorations = [...ed.stop].map((x) => ({
-      range: new monaco.Range(x + 1, 1, x + 1, 1),
-      options: {
-        isWholeLine: false,
-        glyphMarginClassName: 'breakpoint',
-        stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-      },
-    }));
+    const decorateLines = (lines, classname) => (
+      [...lines].map((x) => ({
+        range: new monaco.Range(x + 1, 1, x + 1, 1),
+        options: {
+          isWholeLine: false,
+          glyphMarginClassName: classname,
+          stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+        },
+      }))
+    );
+    ed.stopDecorations = [
+      ...decorateLines(ed.monitor, 'monitorpoint'),
+      ...decorateLines(ed.stop, 'breakpoint'),
+      ...decorateLines(ed.trace, 'tracepoint'),
+    ];
     ed.setDecorations();
+  },
+  setLineAttributes() {
+    const ed = this;
+    if (ed.tc) {
+      D.send('SetLineAttributes', {
+        win: ed.id,
+        monitor: [...ed.monitor],
+        stop: ed.getStops(),
+        trace: [...ed.trace],
+      });
+    }
   },
   setDecorations() {
     const ed = this;
@@ -278,6 +312,27 @@ D.Ed.prototype = {
         ...ed.hlDecorations,
       ],
     );
+  },
+  toggleMonitor(l) {
+    const ed = this;
+    ed.updStops();
+    ed.monitor.has(l) ? ed.monitor.delete(l) : ed.monitor.add(l);
+    ed.setStop();
+    ed.setLineAttributes();
+  },
+  toggleStop(l) {
+    const ed = this;
+    ed.updStops();
+    ed.stop.has(l) ? ed.stop.delete(l) : ed.stop.add(l);
+    ed.setStop();
+    ed.setLineAttributes();
+  },
+  toggleTrace(l) {
+    const ed = this;
+    ed.updStops();
+    ed.trace.has(l) ? ed.trace.delete(l) : ed.trace.add(l);
+    ed.setStop();
+    ed.setLineAttributes();
   },
   updSize() {
     const ed = this;
@@ -302,13 +357,9 @@ D.Ed.prototype = {
     // Check if a filename for a source file is provided.
     // Make sure it isn't duplicated in the existing name.
     if (ee.filename && (ed.name.indexOf(ee.filename) === -1) && D.prf.filenameInTitle()) {
-      ed.name = ed.name.concat(' in ', ee.filename);
+      ed.filename = ee.filename;
     }
-    if (ed.container) {
-      ed.container.setTitle(ed.name);
-      ed.container.tab.header.parent.trigger('resize');
-    }
-    D.ide.floating && $('title', ed.dom.ownerDocument).text(`${ed.name} - ${ed.ide.caption}`);
+    ed.updateTitle();
     model.winid = ed.id;
     ed.hasEmbeddedBreaks = ee.text.some((t) => /[\n\r]/.test(t));
     if (ed.hasEmbeddedBreaks) {
@@ -343,6 +394,7 @@ D.Ed.prototype = {
     }
     me.updateOptions({ folding: ed.isCode && !!D.prf.fold() });
     if (ed.isCode && D.prf.indentOnOpen()) ed.RD(me);
+    else ed.firstOpen = false;
     ed.setRO(ee.debugger);
     ed.setBP(ed.breakpoints);
     const line = ee.currentRow;
@@ -353,12 +405,25 @@ D.Ed.prototype = {
     me.revealLineInCenter(line + 1);
     ed.oStop = (ee.stop || []).slice(0).sort((x, y) => x - y);
     ed.stop = new Set(ed.oStop);
+    ed.monitor = new Set(ee.monitor || []);
+    ed.trace = new Set(ee.trace || []);
     ed.setStop();
   },
   update(x) {
     const ed = this;
     ed.container && ed.container.setTitle(x.name);
     ed.me_ready.then(() => ed.open(x));
+  },
+  updateTitle() {
+    const ed = this;
+    const filename = ed.filename ? ` in ${ed.filename}` : '';
+    if (ed.container) {
+      ed.container.setTitle(ed.title);
+      ed.container.tab.header.parent.trigger('resize');
+      if (ed.filename) ed.container.tab.titleElement[0].title = ed.filename;
+    }
+    const docTitle = `${ed.isModified ? '⬤ ' : ''}${ed.title}${filename} - ${ed.ide.caption}`;
+    D.ide.floating && $('title', ed.dom.ownerDocument).text(docTitle);
   },
   blockCursor(x) { this.me.updateOptions({ cursorStyle: x ? 'block' : 'line' }); },
   cursorBlinking(x) { this.me.updateOptions({ cursorBlinking: x }); },
@@ -375,7 +440,7 @@ D.Ed.prototype = {
       q = p; p = p.parent;
     } // reveal in golden layout
     if (D.ide.floating) {
-      $('title', ed.dom.ownerDocument).text(`${ed.name} - ${ed.ide.caption}`);
+      ed.updateTitle();
       D.el.getCurrentWindow().focus();
     }
     window.focused || window.focus();
@@ -534,11 +599,19 @@ D.Ed.prototype = {
     const v = me.getValue();
     ed.updStops();
     const stop = ed.getStops();
+    ed.isModified = false;
+    ed.updateTitle();
     if (ed.tc || (v === ed.oText && `${stop}` === `${ed.oStop}`)) { // if tracer or unchanged
       ed.isClosing && D.send('CloseWindow', { win: ed.id });
       return;
     }
-    D.send('SaveChanges', { win: ed.id, text: v.split(me.getModel().getEOL()), stop });
+    D.send('SaveChanges', {
+      win: ed.id,
+      text: v.split(me.getModel().getEOL()),
+      monitor: [...ed.monitor],
+      stop,
+      trace: [...ed.trace],
+    });
   },
   TL(me) { // toggle localisation
     const name = D.ide.cword(me);
@@ -622,7 +695,7 @@ D.Ed.prototype = {
     const ed = this;
     ed.stop.clear();
     ed.setStop();
-    ed.tc && D.send('SetLineAttributes', { win: ed.id, stop: ed.getStops() });
+    ed.setLineAttributes();
   },
   BP(me) { // toggle breakpoint
     const ed = this;
@@ -638,7 +711,7 @@ D.Ed.prototype = {
       }
     });
     ed.setStop();
-    ed.tc && D.send('SetLineAttributes', { win: ed.id, stop: ed.getStops() });
+    ed.setLineAttributes();
   },
   RD(me) {
     const ed = this;
@@ -707,6 +780,5 @@ D.Ed.prototype = {
   UC() { this.me.trigger('editor', 'cursorUp'); },
   LC() { this.me.trigger('editor', 'cursorLeft'); },
   RC() { this.me.trigger('editor', 'cursorRight'); },
-  SA() { this.me.setSelection(this.me.getModel().getFullModelRange()); },
   TO() { this.me.trigger('editor', 'editor.fold'); }, // (editor.unfold) is there a toggle?
 };

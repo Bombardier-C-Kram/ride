@@ -103,10 +103,14 @@ input.lyt_g1, input.lyt_g3 {
       border-color: @SHC_KEY_DEL_HVR;
     }
     
-    .shc_text.shc_dup {
-      border-color: @SHC_DUP;
-      background-color: @SHC_DUP;
-      color: @SHC_DUP_COL;
+    .shc_text {
+      .shc_key_btn {
+        background-color: grey;
+        color: white;
+      }
+      &.shc_dup .shc_key_btn {
+        background-color: @SHC_DUP;
+      }
     }
     
     .shc_del {
@@ -162,7 +166,11 @@ a {
 // PREFS_MENU
 #pmenu{
   #pmenu_ta{
-    font-family: monospace;
+    border: 1px solid @CN_INPUT_BORDER_COL;
+    background-color: @CN_INPUT_BG;
+    color: @CN_INPUT_FG;
+    cursor: auto;
+    font-family: apl, monospace;
   }
 }
 @media print {

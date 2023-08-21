@@ -6,8 +6,8 @@
       m[`'${x}'`] = m[`'${old}'`]; delete m[`'${old}'`];
     }
   });
-  
-  D.defaultPrefix = lc => (/^d[ae]/.test(lc) ? '<' : D.prf.prefixKey.getDefault());
+
+  D.defaultPrefix = (lc) => (/^d[ae]/.test(lc) ? '<' : D.prf.prefixKey.getDefault());
 
   const { layouts } = D.kbds;
   if (!layouts[D.prf.kbdLocale()]) {
@@ -15,7 +15,7 @@
     const l = s.slice(0, 2).toLowerCase(); // language
     const c = s.slice(3, 5).toUpperCase(); // country
     // default layout for country c
-    const d = Object.keys(layouts).filter(x => x.slice(3, 5) === c).sort()[0];
+    const d = Object.keys(layouts).filter((x) => x.slice(3, 5) === c).sort()[0];
     let lc;
     if (D.mac && layouts[`${l}_${c}_Mac`]) lc = `${l}_${c}_Mac`;
     else if (layouts[`${l}_${c}`]) lc = `${l}_${c}`;
@@ -29,7 +29,7 @@
   // Each string can be indexed by scancode: http://www.abreojosensamblador.net/Productos/AOE/html/Pags_en/ApF.html
   // "APL" and "APL shifted" are the defaults upon which the user can build customisations.
   let bq; // effective ` map as a dictionary, kept in sync with the prefs
-  function updBQ() {
+  const updBQ = () => {
     bq = {}; D.bq = bq;
     const lc = D.prf.kbdLocale();
     const l = D.kbds.layouts[lc] || D.kbds.layouts.en_US;
@@ -42,9 +42,9 @@
     }
     const s = D.prf.prefixMaps()[lc];
     if (s) for (let i = 0; i < s.length; i += 2) bq[s[i]] = s[i + 1];
-  }
+  };
   updBQ(); D.prf.prefixMaps(updBQ); D.prf.kbdLocale(updBQ);
-  function openURI(uri) { D.openExternal(encodeURI(uri)); }
+  const openURI = (uri) => { D.openExternal(encodeURI(uri)); };
 
   D.keyMap.dyalogDefault = { };
 
@@ -53,12 +53,26 @@
     BT() { D.ide.switchWin(1); },
     CT() { document.execCommand('Cut'); },
     CP() { document.execCommand('Copy'); },
-    PT() { document.execCommand('Paste'); },
+    PT(me) {
+      if (D.el) {
+        document.execCommand('Paste');
+      } else if (me) {
+        navigator.clipboard.readText().then((text) => {
+          me.executeEdits('D', me.getSelections().map((range) => ({ range, text, forceMoveMarkers: true })));
+        }, (error) => {
+          console.log('Failed to read clipboard', error);
+        });
+      }
+    },
+    SA(me) {
+      if (me) me.setSelection(me.getModel().getFullModelRange());
+      else document.execCommand('SelectAll');
+    },
     RDO(me) { me.trigger('D', 'redo'); },
     UND(me) { me.trigger('D', 'undo'); },
     PRF() { D.prf_ui(); },
     ABT() {
-      if (D.el && D.ide.floating) D.ipc.of.ride_master.emit('ABT');
+      if (D.el && D.ide && D.ide.floating) D.ipc.of.ride_master.emit('ABT');
       else D.abt();
     },
     CAM() {
@@ -101,22 +115,23 @@
         D.ipc.of.ride_master.emit('OWS');
         return;
       }
-      if (D.el && D.lastSpawnedExe) {
-        let x = D.el.dialog.showOpenDialogSync(D.elw, {
+      if (D.el && D.isLocalInterpreter) {
+        const x = D.el.dialog.showOpenDialogSync(D.elw, {
           title: 'Open file',
           filters: [],
           properties: ['openFile'],
-        })
+        });
         if (!x) return;
-        const [v] = x
+        const [v] = x;
+        const qt = /\s/.test(v) ? '"' : '';
         if (/\.dws$/i.test(v)) {
           $.confirm(
             `Run Latent Expression of ${v.replace(/^.*[\\/]/, '')}?`,
             'Load Workspace',
-            (x) => D.ide.exec([`      )${(x ? '' : 'x')}load ${v}\n`], 0),
+            (y) => D.ide.exec([`      )${(y ? '' : 'x')}load ${qt}${v}${qt}\n`], 0),
           );
         } else {
-          D.ide.exec([`      )ED file://${v}\n`], 0);
+          D.ide.exec([`      )ED ${qt}file://${v}${qt}\n`], 0);
         }
       }
     },
@@ -167,7 +182,7 @@
       const c = me.getPosition();
       let s = me.getModel().getLineContent(c.lineNumber);
 
-      D.ide.requestHelp(s, c.column - 1 ).then(
+      D.ide.requestHelp(s, c.column - 1).then(
         (url) => {
           openURI(url);
         },
@@ -195,7 +210,8 @@
             else u = h.LANGELEMENTS;
           }
           openURI(u);
-        });
+        },
+      );
     },
     LL(me) { me.trigger('editor', 'cursorHome'); },
     RL(me) {
@@ -280,9 +296,8 @@
   // (for some made-up definition of the word) a shortcut is.
   // Tooltips in the lbar show the simplest one.
   const order = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  function complexity(x) {
-    return (1 + order.indexOf(x)) || (1 + order.length + x.charCodeAt(0));
-  }
+  const complexity = (x) => (1 + order.indexOf(x)) || (1 + order.length + x.charCodeAt(0));
+
   D.getBQKeyFor = (v) => {
     let r = '';
     Object.keys(bq).forEach((x) => {
@@ -317,13 +332,13 @@
     null, null, null, null, null, null, 'TO', 'MO', null, null, null, null, null, 'S1', 'S2', 'OS', // 80
     'IG', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, // 90
   ];
-  function defCmd(x) {
+  const defCmd = (x) => {
     const c = D.commands;
     c[x] || (c[x] = (me) => {
-      const h = me.dyalogCmds;
-      (h && h[x]) ? h.execCommand(x) : $.alert(`Command ${x} not implemented.`);
+        const h = me.dyalogCmds;
+        (h && h[x]) ? h.execCommand(x) : $.alert(`Command ${x} not implemented.`);
     });
-  }
+  };
   ('CBP MA AC VAL indentOrComplete indentMoreOrAutocomplete STL TVO TVB'
   + ' TGC JBK JSC LOG WSE').split(' ').forEach(defCmd);
   for (let i = 0; i < C.length; i++) {
@@ -349,14 +364,15 @@
     const km = monaco.KeyMod;
     const ctrlcmd = {
       Ctrl: D.mac ? km.WinCtrl : km.CtrlCmd,
-      Cmd: km.CtrlCmd,
-      Win: km.CtrlCmd,
+      Cmd: D.mac ? km.CtrlCmd : km.WinCtrl,
+      Option: km.Alt,
+      Win: km.WinCtrl,
       Meta: km.CtrlCmd,
     };
     const stlkbs = [];
     const fxkbs = [];
     function monacoKeyBinding(ks) {
-      return ks.replace(/-(.)/g, '\n$1').split('\n').reduce((a, ko) => {
+      return ks.replace(/\+(.)/g, '\n$1').split('\n').reduce((a, ko) => {
         const k = D.keyMap.labels[ko] || ko;
         return a | (ctrlcmd[k] || km[k] || kc[k]); // eslint-disable-line no-bitwise
       }, 0);
@@ -442,42 +458,42 @@
     DownArrow: 'Down',
     Insert: 'Insert',
     Delete: 'Delete',
-    KEY_0: '0',
-    KEY_1: '1',
-    KEY_2: '2',
-    KEY_3: '3',
-    KEY_4: '4',
-    KEY_5: '5',
-    KEY_6: '6',
-    KEY_7: '7',
-    KEY_8: '8',
-    KEY_9: '9',
-    KEY_A: 'A',
-    KEY_B: 'B',
-    KEY_C: 'C',
-    KEY_D: 'D',
-    KEY_E: 'E',
-    KEY_F: 'F',
-    KEY_G: 'G',
-    KEY_H: 'H',
-    KEY_I: 'I',
-    KEY_J: 'J',
-    KEY_K: 'K',
-    KEY_L: 'L',
-    KEY_M: 'M',
-    KEY_N: 'N',
-    KEY_O: 'O',
-    KEY_P: 'P',
-    KEY_Q: 'Q',
-    KEY_R: 'R',
-    KEY_S: 'S',
-    KEY_T: 'T',
-    KEY_U: 'U',
-    KEY_V: 'V',
-    KEY_W: 'W',
-    KEY_X: 'X',
-    KEY_Y: 'Y',
-    KEY_Z: 'Z',
+    Digit0: '0',
+    Digit1: '1',
+    Digit2: '2',
+    Digit3: '3',
+    Digit4: '4',
+    Digit5: '5',
+    Digit6: '6',
+    Digit7: '7',
+    Digit8: '8',
+    Digit9: '9',
+    KeyA: 'A',
+    KeyB: 'B',
+    KeyC: 'C',
+    KeyD: 'D',
+    KeyE: 'E',
+    KeyF: 'F',
+    KeyG: 'G',
+    KeyH: 'H',
+    KeyI: 'I',
+    KeyJ: 'J',
+    KeyK: 'K',
+    KeyL: 'L',
+    KeyM: 'M',
+    KeyN: 'N',
+    KeyO: 'O',
+    KeyP: 'P',
+    KeyQ: 'Q',
+    KeyR: 'R',
+    KeyS: 'S',
+    KeyT: 'T',
+    KeyU: 'U',
+    KeyV: 'V',
+    KeyW: 'W',
+    KeyX: 'X',
+    KeyY: 'Y',
+    KeyZ: 'Z',
     Meta: 'Meta',
     ContextMenu: 'ContextMenu',
     F1: 'F1',
@@ -501,37 +517,53 @@
     F19: 'F19',
     NumLock: 'NumLock',
     ScrollLock: 'ScrollLock',
-    US_SEMICOLON: ';',
-    US_EQUAL: '=',
-    US_COMMA: ',',
-    US_MINUS: '-',
-    US_DOT: '.',
-    US_SLASH: '/',
-    US_BACKTICK: '`',
+    Semicolon: ';',
+    Equal: '=',
+    Comma: ',',
+    Minus: '-',
+    Period: '.',
+    Slash: '/',
+    Backquote: '`',
+    BracketLeft: '[',
+    Backslash: '\\',
+    BracketRight: ']',
+    Quote: '\'',
+    OEM_8: 'OEM_8',
+    IntlBackslash: 'OEM_102',
+    Numpad0: 'NumPad0',
+    Numpad1: 'NumPad1',
+    Numpad2: 'NumPad2',
+    Numpad3: 'NumPad3',
+    Numpad4: 'NumPad4',
+    Numpad5: 'NumPad5',
+    Numpad6: 'NumPad6',
+    Numpad7: 'NumPad7',
+    Numpad8: 'NumPad8',
+    Numpad9: 'NumPad9',
+    NumpadMultiply: 'NumPad_Multiply',
+    NumpadAdd: 'NumPad_Add',
+    NUMPAD_SEPARATOR: 'NumPad_Separator',
+    NumpadSubtract: 'NumPad_Subtract',
+    NumpadDecimal: 'NumPad_Decimal',
+    NumpadDivide: 'NumPad_Divide',
+    KEY_IN_COMPOSITION: 'KEY_IN_COMPOSITION',
     ABNT_C1: 'ABNT_C1',
     ABNT_C2: 'ABNT_C2',
-    US_OPEN_SQUARE_BRACKET: '[',
-    US_BACKSLASH: '\\',
-    US_CLOSE_SQUARE_BRACKET: ']',
-    US_QUOTE: '\'',
-    OEM_8: 'OEM_8',
-    OEM_102: 'OEM_102',
-    NUMPAD_0: 'NumPad0',
-    NUMPAD_1: 'NumPad1',
-    NUMPAD_2: 'NumPad2',
-    NUMPAD_3: 'NumPad3',
-    NUMPAD_4: 'NumPad4',
-    NUMPAD_5: 'NumPad5',
-    NUMPAD_6: 'NumPad6',
-    NUMPAD_7: 'NumPad7',
-    NUMPAD_8: 'NumPad8',
-    NUMPAD_9: 'NumPad9',
-    NUMPAD_MULTIPLY: 'NumPad_Multiply',
-    NUMPAD_ADD: 'NumPad_Add',
-    NUMPAD_SEPARATOR: 'NumPad_Separator',
-    NUMPAD_SUBTRACT: 'NumPad_Subtract',
-    NUMPAD_DECIMAL: 'NumPad_Decimal',
-    NUMPAD_DIVIDE: 'NumPad_Divide',
+    AudioVolumeMute: 'AudioVolumeMute',
+    AudioVolumeUp: 'AudioVolumeUp',
+    AudioVolumeDown: 'AudioVolumeDown',
+    BrowserSearch: 'BrowserSearch',
+    BrowserHome: 'BrowserHome',
+    BrowserBack: 'BrowserBack',
+    BrowserForward: 'BrowserForward',
+    MediaTrackNext: 'MediaTrackNext',
+    MediaTrackPrevious: 'MediaTrackPrevious',
+    MediaStop: 'MediaStop',
+    MediaPlayPause: 'MediaPlayPause',
+    LaunchMediaPlayer: 'LaunchMediaPlayer',
+    LaunchMail: 'LaunchMail',
+    LaunchApp2: 'LaunchApp2',
+    MAX_VALUE: 'MAX_VALUE',
   };
   Object.keys(l).forEach((k) => { l[l[k]] = k; });
   D.keyMap.labels = l;

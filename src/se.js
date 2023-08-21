@@ -31,6 +31,7 @@ D.Se = function Se(ide) { // constructor
     autoClosingBrackets: !!D.prf.autoCloseBrackets(),
     automaticLayout: false,
     autoIndent: false,
+    'bracketPairColorization.enabled': false,
     contextmenu: false,
     cursorStyle: D.prf.blockCursor() ? 'block' : 'line',
     cursorBlinking: D.prf.cursorBlinking(),
@@ -39,11 +40,12 @@ D.Se = function Se(ide) { // constructor
     fontFamily: 'apl',
     fontSize: fs,
     fixedOverflowWidgets: true,
-    glyphMargin: true, // D.apiVersion > 0,
+    glyphMargin: D.prf.showSessionMargin(),
     iconsInSuggestions: false,
     language: 'apl-session',
     lineHeight: fs + 2,
     lineNumbers: 'off',
+    lineDecorationsWidth: 1,
     matchBrackets: !!D.prf.matchBrackets(),
     minimap: {
       enabled: D.prf.minimapEnabled(),
@@ -58,6 +60,7 @@ D.Se = function Se(ide) { // constructor
     selectionHighlight: D.prf.selectionHighlight(),
     snippetSuggestions: D.prf.snippetSuggestions(),
     suggestOnTriggerCharacters: D.prf.autocompletion() === 'classic',
+    unicodeHighlight: { ambiguousCharacters: false },
     useTabStops: false,
     wordBasedSuggestions: false,
     wordSeparators: D.wordSeparators,
@@ -179,6 +182,7 @@ D.Se = function Se(ide) { // constructor
     else document.activeElement.dispatchEvent(k);
     setTimeout(se.taReplay, 1);
   };
+  se.setPendent = $.debounce(100, (x) => se.dom.classList.toggle('pendent', x));
 };
 D.Se.prototype = {
   histRead() {
@@ -231,6 +235,7 @@ D.Se.prototype = {
       options: {
         isWholeLine: true,
         className: 'modified',
+        glyphMarginClassName: 'modified',
       },
     }));
     se.setDecorations();
@@ -378,6 +383,7 @@ D.Se.prototype = {
       readOnly: !x,
       quickSuggestions: [2, 4].includes(x) ? false : D.prf.autocompletion() === 'classic',
     });
+    se.setPendent(!x);
     if (!wasMultiLine && x === 3) {
       const pl = line - 1;
       se.lineEditor[pl] = true;
@@ -468,7 +474,7 @@ D.Se.prototype = {
           range: new monaco.Range(i + 1, 1, i + 1, 1),
           options: {
             isWholeLine: true,
-            className: logLineStyles[x.type],
+            inlineClassName: logLineStyles[x.type],
             stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
           },
         });
@@ -479,7 +485,6 @@ D.Se.prototype = {
           || (se.promptType === 3 && next.group === undefined))) type = 'middle';
       else if (x.group === prev.group) type = 'end';
       else if (x.group === next.group || next.group === undefined) type = 'start';
-      else if (se.dirty[i]) type = 'single';
       else return;
       se.groupDecorations.push({
         range: new monaco.Range(i + 1, 1, i + 1, 1),
@@ -662,6 +667,7 @@ D.Se.prototype = {
   minimapShowSlider(x) { this.me.updateOptions({ minimap: { showSlider: x } }); },
   renderLineHighlight(x) { this.me.updateOptions({ renderLineHighlight: x }); },
   selectionHighlight(x) { this.me.updateOptions({ selectionHighlight: x }); },
+  showSessionMargin(x) { this.me.updateOptions({ glyphMargin: x }); },
   snippetSuggestions(x) { this.me.updateOptions({ snippetSuggestions: x ? 'bottom' : 'none' }); },
   autocompletion(x) {
     this.me.updateOptions({
@@ -711,6 +717,7 @@ D.Se.prototype = {
       D.ide.Edit({ win: 0, pos, text });
     }
   },
+  RD() { /* NA */ },
   BK() { this.histMove(1); },
   FD() { this.histMove(-1); },
   QT(me) {
@@ -768,7 +775,6 @@ D.Se.prototype = {
   UC() { this.me.trigger('editor', 'cursorUp'); },
   LC() { this.me.trigger('editor', 'cursorLeft'); },
   RC() { this.me.trigger('editor', 'cursorRight'); },
-  SA() { this.me.setSelection(this.me.getModel().getFullModelRange()); },
   TO() { this.me.trigger('editor', 'editor.fold'); }, // (editor.unfold) is there a toggle?
   TVB() { D.prf.breakPts.toggle(); },
   TVO() { D.prf.fold.toggle(); },
