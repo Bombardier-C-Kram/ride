@@ -1,3 +1,4 @@
+const path = require('path');
 const generateLicenses = function generateLicenses(file) {
   const checker = require('license-checker');
   const fs = require('fs');
@@ -27,7 +28,7 @@ const generateLicenses = function generateLicenses(file) {
       obj.module = key;
       return obj;
     })
-      .filter((item) => !isMarkDown(item.licenseFile))
+      .filter((item) => item.licenseFile != null && !isMarkDown(item.licenseFile))
       .reduce(
         (r, v) => {
           (r[v.licenses] || (r[v.licenses] = [])).push(v);
